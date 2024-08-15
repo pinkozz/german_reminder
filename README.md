@@ -1,5 +1,5 @@
 # german_reminder
-Telegram Bot made to remind you to learn German
+Telegram Bot made for reminding you to learn German
 
 # Table of contents
 • [Features](https://github.com/pinkozz/german_reminder#features)
