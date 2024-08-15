@@ -26,7 +26,7 @@ Telegram Bot made for reminding you to learn German
 2. Navigate to project folder:
    
    ```shell
-   cd track-money-bot
+   cd german_reminder
    ```
 3. Once you have installed the bot open the main.py fileand change 'API_TOKEN' to your own API key:
    
