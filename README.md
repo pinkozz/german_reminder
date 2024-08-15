@@ -10,8 +10,6 @@ Telegram Bot made for reminding you to learn German
 
 • [Contributing](https://github.com/pinkozz/german_reminder#contributing)
 
-• [License](https://github.com/pinkozz/german_reminder#license)
-
 # Features
 • User friendly interactions through a Telegram interface
 
