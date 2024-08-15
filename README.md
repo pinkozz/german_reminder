@@ -1,3 +1,5 @@
+https://github.com/user-attachments/assets/c5d3647d-3d7d-4eda-9e31-b89db24069fe
+
 # german_reminder
 Telegram Bot made for reminding you to learn German
 
