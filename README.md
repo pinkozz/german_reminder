@@ -31,7 +31,7 @@ Telegram Bot made for reminding you to learn German
 3. Once you have installed the bot open the main.py fileand change 'API_TOKEN' to your own API key:
    
    ```shell
-   bot = telebot.TeleBot('TOKEN')
+   bot = telebot.TeleBot('API_TOKEN')
    ```
 
 4. Run the bot:
