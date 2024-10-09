@@ -4,7 +4,7 @@ from get_time import get_time
 import db
 from db import User
 
-bot = telebot.TeleBot(token="7885054554:AAGXOm7F5Y3KMKGgpcHCZhdMrdgrSchWkpA")
+bot = telebot.TeleBot(token="API_KEY")
 
 # lehrbuch = "Zeit für eine Seite von Lehrbuch!📕"
 # worter = "Zeit für die Wörter Überarbeitung!🌐"
