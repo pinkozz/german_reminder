@@ -1,6 +1,7 @@
 import time
 
 def get_time():
-    hour = time.gmtime().tm_hour
+    # UTC+03:00
+    hour = time.gmtime().tm_hour+3
     minute = time.gmtime().tm_min
     return [hour, minute]
