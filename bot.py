@@ -14,20 +14,24 @@ bot = telebot.TeleBot(token="API_TOKEN")
 
 messages = {
     "de": {
-        "greet_message": "Hallo!🙋‍♂️ \nIch bin hier um errinern dir daran zu Deutsch zu lernen! Von jetzt an, werde ich dir hier Errinerungen senden. \nBitte wählen Sie Ihre Sprache:",
+        "greet_message": "Hallo!🙋‍♂️ \nIch bin hier um errinern dir daran zu Deutsch zu lernen! Von jetzt an, werde ich dir hier Errinerungen senden. \n\nBitte wählen Sie Ihre Sprache:",
         "hours_message": "Bitte geben Sie die Uhrzeit ein, zu der Sie die Erinnerung erhalten möchten:",
         "text_message": "Bitte geben Sie den Text Ihrer Erinnerung ein:",
         "reminder_created": "Erinnerung wurde gespeichert.",
-        "language_changed_message": "Die Spreche ist auf Deutsch geändert",
+        "my_reminders_message": "Deine Erinnerungen:",
+        "language_changed_message": "Die Spreche ist auf Deutsch geändert.",
+        "no_reminders_message": "Du hast keine Erinnerungen.",
         "error_message": "Etwas ist schiefgelaufen, aber der Entwickler arbeitet daran.",
         "reminder_exists_message": "Für diese Stunde ist bereits eine Erinnerung eingestellt.",
     },
     "gb": {
-        "greet_message": "Hello!🙋‍♂️ \nI am here to remind you to learn German! From now on, I will be sending you reminders. \nPlease choose your language:",
+        "greet_message": "Hello!🙋‍♂️ \nI am here to remind you to learn German! From now on, I will be sending you reminders. \n\nPlease choose your language:",
         "hours_message": "Please specify the hour when you want to receive a reminder:",
         "text_message": "Please specify the message of the reminder:",
         "reminder_created": "Reminder has been created.",
-        "language_changed_message": "The language is changed to English",
+        "my_reminders_message": "Your reminders:",
+        "language_changed_message": "The language has been changed to English.",
+        "no_reminders_message": "You have no reminders.",
         "error_message": "Something went wrong, but the developer works on it.",
         "reminder_exists_message": "There is already a reminder for this hour.",
     }
@@ -93,6 +97,24 @@ def set_reminder(message):
             # Wait for the user to send the hour
             bot.register_next_step_handler(message, get_hours)
 
+        except Exception as e:
+            bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["error_message"])
+            print(e)
+
+@bot.message_handler(commands=['my_reminders'])
+def my_reminders(message):
+    if message.chat.type == 'private':
+        try:
+            user_id = str(message.from_user.id)
+            initialize_user_data(user_id)
+
+            user_reminders:dict = user_data[user_id]["reminders"]
+            user_reminders_message = "\n".join([f"{"00" if i == "24" else i}:00 – {k}" for i, k in user_reminders.items()])
+
+            if len(user_reminders) > 0:
+                bot.send_message(message.chat.id, f"{messages[user_data[user_id]["language"]]["my_reminders_message"]} \n\n{user_reminders_message}")
+            else:
+                bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["no_reminders_message"])
         except Exception as e:
             bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["error_message"])
             print(e)
