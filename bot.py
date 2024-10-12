@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import db
 from db import User
 
-bot = telebot.TeleBot(token="7863666634:AAE0DOEbD6_17PZM0ZDG6tF6cRQV8yvc_iA")
+bot = telebot.TeleBot(token="API_TOKEN")
 
 messages = {
     "de": {
