@@ -1,5 +1,4 @@
 import telebot
-import time
 import json
 from get_time import get_time
 from apscheduler.schedulers.background import BackgroundScheduler
