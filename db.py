@@ -5,7 +5,7 @@ with open("db.json", "r") as f:
     user_data = json.load(f)
 
 class User:
-  def __init__(self, id: int, language: str="de"):
+  def __init__(self, id: int, language: str="gb"):
     self.id = id
     self.language = language
   

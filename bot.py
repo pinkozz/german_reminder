@@ -1,28 +1,33 @@
-import telebot
 import json
-from get_time import get_time
+
+import telebot
+from telebot import types
+
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import db
 from db import User
 
+from get_time import get_time
+
 bot = telebot.TeleBot(token="API_TOKEN")
 
 messages = {
     "de": {
-        "greet_message": "Hallo!🙋‍♂️ \nIch bin hier um errinern dir daran zu Deutsch zu lernen! Von jetzt an, werde ich dir hier Errinerungen senden.",
+        "greet_message": "Hallo!🙋‍♂️ \nIch bin hier um errinern dir daran zu Deutsch zu lernen! Von jetzt an, werde ich dir hier Errinerungen senden. \nBitte wählen Sie Ihre Sprache:",
         "hours_message": "Bitte geben Sie die Uhrzeit ein, zu der Sie die Erinnerung erhalten möchten:",
         "text_message": "Bitte geben Sie den Text Ihrer Erinnerung ein:",
         "reminder_created": "Erinnerung wurde gespeichert.",
+        "language_changed_message": "Die Spreche ist auf Deutsch geändert",
         "error_message": "Etwas ist schiefgelaufen, aber der Entwickler arbeitet daran.",
         "reminder_exists_message": "Für diese Stunde ist bereits eine Erinnerung eingestellt.",
-
     },
     "gb": {
-        "greet_message": "Hello!🙋‍♂️ \nI am here to remind you to learn German! From now on, I will be sending you reminders.",
+        "greet_message": "Hello!🙋‍♂️ \nI am here to remind you to learn German! From now on, I will be sending you reminders. \nPlease choose your language:",
         "hours_message": "Please specify the hour when you want to receive a reminder:",
         "text_message": "Please specify the message of the reminder:",
         "reminder_created": "Reminder has been created.",
+        "language_changed_message": "The language is changed to English",
         "error_message": "Something went wrong, but the developer works on it.",
         "reminder_exists_message": "There is already a reminder for this hour.",
     }
@@ -62,7 +67,14 @@ def main(message):
             user_id = str(message.from_user.id)
             initialize_user_data(user_id)
 
-            bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["greet_message"])
+            markup = types.InlineKeyboardMarkup()
+
+            german = types.InlineKeyboardButton("🇩🇪", callback_data="de")
+            english = types.InlineKeyboardButton("🇬🇧/🇺🇸", callback_data="gb")
+
+            markup.add(german, english)
+
+            bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["greet_message"], reply_markup=markup)
 
         except Exception as e:
             bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["error_message"])
@@ -121,6 +133,20 @@ def get_text(msg):
     except Exception as e:
         bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["error_message"])
         print(e)
+
+# Callbacks
+@bot.callback_query_handler(func=lambda call: True)
+def callback(call):
+    user_id = str(call.from_user.id)
+
+    if call.data == "gb":
+        user_data[user_id]["language"] = "gb"
+        sync()
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[call.data]["language_changed_message"])
+    elif call.data == "de":
+        user_data[user_id]["language"] = "de"
+        sync()
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[call.data]["language_changed_message"])
 
 # Schedule the reminder checker
 scheduler.add_job(check_reminders, 'interval', minutes=1)
