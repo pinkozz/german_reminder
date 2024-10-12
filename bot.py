@@ -7,13 +7,27 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import db
 from db import User
 
-bot = telebot.TeleBot(token="API_TOKEN")
+bot = telebot.TeleBot(token="7863666634:AAE0DOEbD6_17PZM0ZDG6tF6cRQV8yvc_iA")
 
-greet_message = "Hallo!🙋‍♂️ \nIch bin hier um errinern dir daran zu Deutsch zu lernen! Von jetzt an, werde ich dir hier Errinerungen senden"
-error_message = "Etwas ist schiefgelaufen, aber der Entwickler arbeitet daran."
-hours_message = "Bitte geben Sie die Uhrzeit ein, zu der Sie die Erinnerung erhalten möchten:"
-text_message = "Bitte geben Sie den Text Ihrer Erinnerung ein:"
-reminder_exists_message = "Für diese Stunde ist bereits eine Erinnerung eingestellt"
+messages = {
+    "de": {
+        "greet_message": "Hallo!🙋‍♂️ \nIch bin hier um errinern dir daran zu Deutsch zu lernen! Von jetzt an, werde ich dir hier Errinerungen senden.",
+        "hours_message": "Bitte geben Sie die Uhrzeit ein, zu der Sie die Erinnerung erhalten möchten:",
+        "text_message": "Bitte geben Sie den Text Ihrer Erinnerung ein:",
+        "reminder_created": "Erinnerung wurde gespeichert.",
+        "error_message": "Etwas ist schiefgelaufen, aber der Entwickler arbeitet daran.",
+        "reminder_exists_message": "Für diese Stunde ist bereits eine Erinnerung eingestellt.",
+
+    },
+    "gb": {
+        "greet_message": "Hello!🙋‍♂️ \nI am here to remind you to learn German! From now on, I will be sending you reminders.",
+        "hours_message": "Please specify the hour when you want to receive a reminder:",
+        "text_message": "Please specify the message of the reminder:",
+        "reminder_created": "Reminder has been created.",
+        "error_message": "Something went wrong, but the developer works on it.",
+        "reminder_exists_message": "There is already a reminder for this hour.",
+    }
+}
 
 user_data = db.user_data
 scheduler = BackgroundScheduler()
@@ -49,10 +63,10 @@ def main(message):
             user_id = str(message.from_user.id)
             initialize_user_data(user_id)
 
-            bot.send_message(message.chat.id, greet_message)
+            bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["greet_message"])
 
         except Exception as e:
-            bot.send_message(message.chat.id, error_message)
+            bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["error_message"])
             print(e)
 
 # Command to set a reminder
@@ -63,13 +77,13 @@ def set_reminder(message):
             user_id = str(message.from_user.id)
             initialize_user_data(user_id)
 
-            bot.send_message(message.chat.id, hours_message)
+            bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["hours_message"])
 
             # Wait for the user to send the hour
             bot.register_next_step_handler(message, get_hours)
 
         except Exception as e:
-            bot.send_message(message.chat.id, error_message)
+            bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["error_message"])
             print(e)
 
 def get_hours(msg):
@@ -79,17 +93,17 @@ def get_hours(msg):
 
         if 1 <= int(hours) <= 24:
             if user_data[user_id]['reminders'].get(hours):
-                bot.send_message(msg.chat.id, reminder_exists_message)
+                bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["reminder_exists_message"])
             else:
                 # Store the hour temporarily and ask for the reminder text
                 user_data[user_id]['current_hour'] = hours
-                bot.send_message(msg.chat.id, text_message)
+                bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["text_message"])
                 bot.register_next_step_handler(msg, get_text)
         else:
-            bot.send_message(msg.chat.id, error_message)
+            bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["error_message"])
 
     except ValueError:
-        bot.send_message(msg.chat.id, error_message)
+        bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["error_message"])
 
 def get_text(msg):
     try:
@@ -101,12 +115,12 @@ def get_text(msg):
             # Save the reminder with the corresponding hour
             user_data[user_id]['reminders'][hours] = reminder_text
             sync()
-            bot.send_message(msg.chat.id, f"Erinnerung für {'00' if hours=="24" else hours}:00 - '{reminder_text}' wurde gespeichert.")
+            bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["reminder_created"])
         else:
-            bot.send_message(msg.chat.id, error_message)
+            bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["error_message"])
 
     except Exception as e:
-        bot.send_message(msg.chat.id, error_message)
+        bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["error_message"])
         print(e)
 
 # Schedule the reminder checker
