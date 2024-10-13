@@ -12,7 +12,7 @@ from get_time import get_time
 
 bot = telebot.TeleBot(token="API_TOKEN")
 
-messages = {
+messages:dict = {
     "de": {
         "greet_message": "Hallo!🙋‍♂️ \nIch bin hier um errinern dir daran zu Deutsch zu lernen! Von jetzt an, werde ich dir hier Errinerungen senden. \n\nBitte wählen Sie Ihre Sprache:",
         "hours_message": "Bitte geben Sie die Uhrzeit ein, zu der Sie die Erinnerung erhalten möchten:",
@@ -144,8 +144,8 @@ def my_reminders(message):
 
 def get_hours(msg):
     try:
-        user_id = str(msg.from_user.id)
-        hours = msg.text
+        user_id:str = str(msg.from_user.id)
+        hours:str = msg.text
 
         if 1 <= int(hours) <= 24:
             if user_data[user_id]['reminders'].get(hours):
@@ -163,8 +163,8 @@ def get_hours(msg):
 
 def get_text(msg):
     try:
-        user_id = str(msg.from_user.id)
-        reminder_text = msg.text
+        user_id:str = str(msg.from_user.id)
+        reminder_text:str = msg.text
         hours = user_data[user_id].get('current_hour')
 
         if hours:
@@ -182,7 +182,7 @@ def get_text(msg):
 # Callbacks
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
-    user_id = str(call.from_user.id)
+    user_id:str = str(call.from_user.id)
     user_reminders:dict = user_data[user_id]["reminders"]
     hours = user_data[user_id].get('current_hour')
 
@@ -216,7 +216,7 @@ def callback(call):
         no = types.InlineKeyboardButton(messages[user_data[user_id]["language"]]["no_button"], callback_data="no")
 
         markup.add(yes, no)
-        ##################
+        
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["delete_confirmation_message"] + f"\"{user_data[user_id]["reminders"][hours]}\" for {"00" if hours == "24" else hours}:00?", reply_markup=markup)
     
     elif call.data == "edit":
