@@ -20,6 +20,15 @@ messages = {
         "reminder_created": "Erinnerung wurde gespeichert.",
         "my_reminders_message": "Deine Erinnerungen:",
         "language_changed_message": "Die Spreche ist auf Deutsch geändert.",
+        "delete_confirmation_message": "Bist du sicher, dass du möchtest diese Erinnerung löschen: ",
+        "deleted_message": "Die Erinnerung ist gelöscht.",
+        "aborted_message": "Aktion abgebrochen.",
+
+        "yes_button": "Ja",
+        "no_button": "Nein",
+        "edit_button": "Bearbeiten",
+        "delete_button": "Löschen",
+
         "no_reminders_message": "Du hast keine Erinnerungen.",
         "error_message": "Etwas ist schiefgelaufen, aber der Entwickler arbeitet daran.",
         "reminder_exists_message": "Für diese Stunde ist bereits eine Erinnerung eingestellt.",
@@ -31,13 +40,22 @@ messages = {
         "reminder_created": "Reminder has been created.",
         "my_reminders_message": "Your reminders:",
         "language_changed_message": "The language has been changed to English.",
+        "delete_confirmation_message": "Are you sure that you want to delete this reminder: ",
+        "deleted_message": "The reminder is deleted.",
+        "aborted_message": "Action aborted.",
+
+        "yes_button": "Yes",
+        "no_button": "No",
+        "edit_button": "Edit",
+        "delete_button": "Delete",
+
         "no_reminders_message": "You have no reminders.",
         "error_message": "Something went wrong, but the developer works on it.",
         "reminder_exists_message": "There is already a reminder for this hour.",
     }
 }
 
-user_data = db.user_data
+user_data:dict = db.user_data
 scheduler = BackgroundScheduler()
 
 # Function to initialize user data if not present
@@ -111,8 +129,14 @@ def my_reminders(message):
             user_reminders:dict = user_data[user_id]["reminders"]
             user_reminders_message = "\n".join([f"{"00" if i == "24" else i}:00 – {k}" for i, k in user_reminders.items()])
 
+            markup = types.InlineKeyboardMarkup()
+
+            for i, k in user_reminders.items():
+                button = types.InlineKeyboardButton("\n".join(f"{"00" if i == "24" else i}:00 – {k}"), callback_data=f"{i}")
+                markup.add(button)
+
             if len(user_reminders) > 0:
-                bot.send_message(message.chat.id, f"{messages[user_data[user_id]["language"]]["my_reminders_message"]} \n\n{user_reminders_message}")
+                bot.send_message(message.chat.id, f"{messages[user_data[user_id]["language"]]["my_reminders_message"]} \n\n{user_reminders_message}", reply_markup=markup)
             else:
                 bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["no_reminders_message"])
         except Exception as e:
@@ -160,6 +184,8 @@ def get_text(msg):
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     user_id = str(call.from_user.id)
+    user_reminders:dict = user_data[user_id]["reminders"]
+    hours = user_data[user_id].get('current_hour')
 
     if call.data == "gb":
         user_data[user_id]["language"] = "gb"
@@ -169,6 +195,54 @@ def callback(call):
         user_data[user_id]["language"] = "de"
         sync()
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[call.data]["language_changed_message"])
+
+    for i, k in user_reminders.items():
+        if call.data == i:
+            markup = types.InlineKeyboardMarkup()
+
+            edit = types.InlineKeyboardButton(messages[user_data[user_id]["language"]]["edit_button"], callback_data="edit")
+            delete = types.InlineKeyboardButton(messages[user_data[user_id]["language"]]["delete_button"], callback_data="delete")
+
+            markup.add(edit, delete)
+
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{"00" if i == "24" else i}:00 – {k}", reply_markup=markup)
+            
+            user_data[user_id]['current_hour'] = i
+            sync()
+
+    if call.data == "delete":
+        markup = types.InlineKeyboardMarkup()
+
+        yes = types.InlineKeyboardButton(messages[user_data[user_id]["language"]]["yes_button"], callback_data="yes")
+        no = types.InlineKeyboardButton(messages[user_data[user_id]["language"]]["no_button"], callback_data="no")
+
+        markup.add(yes, no)
+        ##################
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["delete_confirmation_message"] + f"\"{user_data[user_id]["reminders"][hours]}\" for {"00" if hours == "24" else hours}:00?", reply_markup=markup)
+    
+    elif call.data == "edit":
+        hour = user_data[user_id]["current_hour"]
+        del user_data[user_id]["reminders"][hour]
+
+        if 1 <= int(hour) <= 24:
+            if user_data[user_id]['reminders'].get(hour):
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["reminder_exists_message"])
+            else:
+                # Store the hour temporarily and ask for the reminder text
+                user_data[user_id]['current_hour'] = hour
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["text_message"])
+                bot.register_next_step_handler(call.message, get_text)
+        else:
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["error_message"])
+
+    elif call.data == "yes":
+        del user_data[user_id]["reminders"][hours]
+        sync()
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["deleted_message"])
+
+    elif call.data == "no":
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["aborted_message"])
+
 
 # Schedule the reminder checker
 scheduler.add_job(check_reminders, 'interval', minutes=1)
