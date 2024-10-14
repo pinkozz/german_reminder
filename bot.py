@@ -226,18 +226,15 @@ def callback(call):
     
     elif call.data == "edit":
         hour = user_data[user_id]["current_hour"]
-        del user_data[user_id]["reminders"][hour]
 
-        if 1 <= int(hour) <= 24:
-            if user_data[user_id]['reminders'].get(hour):
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["reminder_exists_message"])
-            else:
-                # Store the hour temporarily and ask for the reminder text
-                user_data[user_id]['current_hour'] = hour
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["text_message"])
-                bot.register_next_step_handler(call.message, get_text)
-        else:
+        try:
+            # Store the hour temporarily and ask for the reminder text
+            user_data[user_id]['current_hour'] = hour
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["text_message"])
+            bot.register_next_step_handler(call.message, get_text)
+        except Exception as e:
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["error_message"])
+            print(e)
 
     elif call.data == "yes":
         del user_data[user_id]["reminders"][hours]
