@@ -127,15 +127,20 @@ def my_reminders(message):
             initialize_user_data(user_id)
 
             user_reminders:dict = user_data[user_id]["reminders"]
+            reminders = []
+
+            num = 1
 
             markup = types.InlineKeyboardMarkup()
 
             for i, k in user_reminders.items():
-                button = types.InlineKeyboardButton("\n".join(f"{"00" if i == "24" else i}:00 – {k}"), callback_data=f"{i}")
+                reminders.append(f"{num}. {"00" if i == "24" else i}:00 – {k}")
+                button = types.InlineKeyboardButton("\n".join(f"{num}. {"00" if i == "24" else i}:00 – {k}"), callback_data=f"{i}")
                 markup.add(button)
+                num+=1
 
             if len(user_reminders) > 0:
-                bot.send_message(message.chat.id, f"{messages[user_data[user_id]["language"]]["my_reminders_message"]}", reply_markup=markup)
+                bot.send_message(message.chat.id, f"{messages[user_data[user_id]["language"]]["my_reminders_message"]}\n\n" + "\n".join(reminders), reply_markup=markup)
             else:
                 bot.send_message(message.chat.id, messages[user_data[user_id]["language"]]["no_reminders_message"])
         except Exception as e:
