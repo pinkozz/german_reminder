@@ -10,7 +10,7 @@ from db import User
 
 from get_time import get_time
 
-bot = telebot.TeleBot(token="7863666634:AAHs78PoaC9Ee6P5KN5BzCwlBHiN_hLf5Fk")
+bot = telebot.TeleBot(token="API_TOKEN")
 
 messages:dict = {
     "de": {
