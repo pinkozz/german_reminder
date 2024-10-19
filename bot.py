@@ -1,12 +1,9 @@
-import json
+import sqlite3
 
 import telebot
 from telebot import types
 
 from apscheduler.schedulers.background import BackgroundScheduler
-
-import db
-from db import User
 
 from get_time import get_time
 
@@ -55,23 +52,149 @@ messages:dict = {
     }
 }
 
-user_data:dict = db.user_data
+user_data = {}
 scheduler = BackgroundScheduler()
 
-# Function to initialize user data if not present
-def initialize_user_data(user_id):
-    if user_id not in user_data:
-        new_user = User(user_id)
-        new_user.create_user()
+def get_db_connection():
+    connection = sqlite3.connect("reminders.db")
+    return connection
 
-# Sync data with json file
-def sync():
-    with open("db.json", "w") as f:
-        f.write(json.dumps(user_data, indent=4))
+# Function to initialize user data if not present
+def initialize_user_data(user_id: str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    # Check if the user is already in the database
+    c.execute("SELECT language FROM users WHERE user_id=?", (user_id,))
+    user = c.fetchone()
+
+    # If the user is not in the database, insert them with the default language
+    if user is None:
+        c.execute("INSERT INTO users (user_id, language, current_hour) VALUES (?, ?, ?)", (user_id, 'gb', '0'))
+        user_data[user_id] = {
+            "language": 'gb',  # Default language
+            "reminders": {},
+            "current_hour": "0"
+        }
+    else:
+        # If the user exists, load their language from the database
+        user_data[user_id] = {
+            "language": user[0],  # Load the language from the database
+            "reminders": get_reminders(user_id),
+            "current_hour": get_current_hour(user_id)
+        }
+
+    connection.commit()
+    connection.close()
+
 
 # Get user's reminders
-def get_reminders(user_id):
-    return user_data.get(user_id, {}).get("reminders", {})
+def get_reminders(user_id:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("SELECT hour, text FROM reminders WHERE user_id=?", (user_id,))
+    reminders = {row[0]: row[1] for row in c.fetchall()}
+
+    connection.close()
+    return reminders
+
+# Get user's language
+def get_language(user_id:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("SELECT language FROM users WHERE user_id=?", (user_id,))
+    result = c.fetchone()
+    print(result)
+
+    connection.close()
+
+    if result is not None:
+        return result[0]  # Unpack the first value from the tuple
+    return None
+
+
+def get_current_hour(user_id:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("SELECT current_hour FROM users WHERE user_id=?", (user_id,))
+    current_hour = c.fetchone()
+
+    connection.close()
+    
+    if current_hour is not None:
+        return current_hour[0]
+    return None
+
+# Get a reminder's text by hour
+def get_text_by_hour(user_id:str, hour:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("SELECT text FROM reminders WHERE user_id=? AND hour=?", (user_id, hour,))
+    reminder_text = c.fetchone()
+
+    connection.close()
+    
+    if reminder_text is not None:
+        return reminder_text[0]
+    return None
+
+# Get a reminder's hour by text
+def get_hour_by_text(user_id:str, text:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("SELECT hour FROM reminders WHERE user_id=? AND text=?", (user_id, text,))
+    reminder_hour = c.fetchone()
+
+    connection.close()
+    
+    if reminder_hour is not None:
+        return reminder_hour[0]
+    return None
+
+# Update user's language
+def update_language(user_id:str, language:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("UPDATE users SET language=? WHERE user_id=?", (language, user_id,))
+
+    connection.commit()
+    connection.close()
+
+# Update text by reminder's hour
+def update_text(user_id:str, hour:str, new_text:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("UPDATE reminders SET text=? WHERE user_id=? AND hour=?", (new_text, user_id, hour,))
+
+    connection.commit()
+    connection.close()
+
+# Update current_hour
+def update_current_hour(user_id:str, new_current_hour:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("UPDATE users SET current_hour=? WHERE user_id=?", (new_current_hour, user_id,))
+    
+    connection.commit()
+    connection.close()
+
+# Remove a reminder by hour
+def remove_by_hour(user_id:str, hour:str):
+    connection = get_db_connection()
+    c = connection.cursor()
+
+    c.execute("DELETE FROM reminders WHERE user_id=? AND hour=?", (user_id, hour,))
+
+    connection.commit()
+    connection.close()
 
 # Function to send reminder if the time matches
 def check_reminders():
@@ -126,7 +249,7 @@ def my_reminders(message):
             user_id = str(message.from_user.id)
             initialize_user_data(user_id)
 
-            user_reminders:dict = user_data[user_id]["reminders"]
+            user_reminders:dict = get_reminders(user_id)
             reminders = []
 
             num = 1
@@ -153,11 +276,11 @@ def get_hours(msg):
         hours:str = msg.text
 
         if 1 <= int(hours) <= 24:
-            if user_data[user_id]['reminders'].get(hours):
+            if get_text_by_hour(user_id, hours):
                 bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["reminder_exists_message"])
             else:
                 # Store the hour temporarily and ask for the reminder text
-                user_data[user_id]['current_hour'] = hours
+                update_current_hour(user_id, hours)
                 bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["text_message"])
                 bot.register_next_step_handler(msg, get_text)
         else:
@@ -170,12 +293,25 @@ def get_text(msg):
     try:
         user_id:str = str(msg.from_user.id)
         reminder_text:str = msg.text
-        hours = user_data[user_id].get('current_hour')
+        hours = get_current_hour(user_id)
 
         if hours:
-            # Save the reminder with the corresponding hour
-            user_data[user_id]['reminders'][hours] = reminder_text
-            sync()
+            # Check if a reminder for this hour already exists
+            existing_text = get_text_by_hour(user_id, hours)
+
+            connection = get_db_connection()
+            c = connection.cursor()
+
+            if existing_text is None:
+                # Insert the new reminder if it doesn't exist
+                c.execute("INSERT INTO reminders (user_id, hour, text) VALUES (?, ?, ?)", (user_id, hours, reminder_text))
+            else:
+                # Update the existing reminder
+                c.execute("UPDATE reminders SET text=? WHERE user_id=? AND hour=?", (reminder_text, user_id, hours))
+
+            connection.commit()
+            connection.close()
+
             bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["reminder_created"])
         else:
             bot.send_message(msg.chat.id, messages[user_data[user_id]["language"]]["error_message"])
@@ -187,19 +323,21 @@ def get_text(msg):
 # Callbacks
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
-    user_id:str = str(call.from_user.id)
-    user_reminders:dict = user_data[user_id]["reminders"]
-    hours = user_data[user_id].get('current_hour')
+    user_id = str(call.from_user.id)
+    user_reminders = get_reminders(user_id)
+    hours = get_current_hour(user_id)
 
     if call.data == "gb":
-        user_data[user_id]["language"] = "gb"
-        sync()
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[call.data]["language_changed_message"])
-    elif call.data == "de":
-        user_data[user_id]["language"] = "de"
-        sync()
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[call.data]["language_changed_message"])
+        update_language(user_id, 'gb')
+        user_data[user_id]['language'] = 'gb'
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages['gb']["language_changed_message"])
 
+    elif call.data == "de":
+        update_language(user_id, 'de')
+        user_data[user_id]['language'] = 'de'
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages['de']["language_changed_message"])
+
+    # Handle reminder operations
     for i, k in user_reminders.items():
         if call.data == i:
             markup = types.InlineKeyboardMarkup()
@@ -209,11 +347,11 @@ def callback(call):
 
             markup.add(edit, delete)
 
-            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{"00" if i == "24" else i}:00 – {k}", reply_markup=markup)
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{'00' if i == '24' else i}:00 – {k}", reply_markup=markup)
             
-            user_data[user_id]['current_hour'] = i
-            sync()
+            update_current_hour(user_id, i)
 
+    # Handle delete confirmation
     if call.data == "delete":
         markup = types.InlineKeyboardMarkup()
 
@@ -221,28 +359,29 @@ def callback(call):
         no = types.InlineKeyboardButton(messages[user_data[user_id]["language"]]["no_button"], callback_data="no")
 
         markup.add(yes, no)
-        
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["delete_confirmation_message"] + f"\"{user_data[user_id]["reminders"][hours]}\" for {"00" if hours == "24" else hours}:00?", reply_markup=markup)
-    
+
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["delete_confirmation_message"] + f"\"{user_reminders[hours]}\" for {'00' if hours == '24' else hours}:00?", reply_markup=markup)
+
+    # If the user confirms deletion
+    elif call.data == "yes":
+        remove_by_hour(user_id, hours)
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["deleted_message"])
+
+    # If the user cancels the deletion
+    elif call.data == "no":
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["aborted_message"])
+
+    # Handle edit reminder
     elif call.data == "edit":
-        hour = user_data[user_id]["current_hour"]
+        hour = get_current_hour(user_id)
 
         try:
-            # Store the hour temporarily and ask for the reminder text
-            user_data[user_id]['current_hour'] = hour
+            # Ask the user for new text to update the reminder
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["text_message"])
-            bot.register_next_step_handler(call.message, get_text)
+            bot.register_next_step_handler(call.message, get_text)  # Use get_text to update reminder text
         except Exception as e:
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["error_message"])
             print(e)
-
-    elif call.data == "yes":
-        del user_data[user_id]["reminders"][hours]
-        sync()
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["deleted_message"])
-
-    elif call.data == "no":
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=messages[user_data[user_id]["language"]]["aborted_message"])
 
 
 # Schedule the reminder checker
